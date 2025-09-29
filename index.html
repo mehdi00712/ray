@@ -2,26 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Blow Out 21 Candles 🎂</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="top">
     <h1>Blow Out 21 Candles 🎂</h1>
-    <p class="hint">Tap “Enable Microphone”, then blow towards your mic. Keep blowing to put them all out!</p>
+    <p class="hint">
+      Tap “Enable Microphone”, then gently blow toward your phone’s mic. It’s calibrated to be easy. 👍
+    </p>
     <div class="controls">
       <button id="micBtn" class="btn">🎤 Enable Microphone</button>
-      <span id="level" class="level" aria-live="polite" title="Live mic level meter"></span>
+      <span id="level" class="level" aria-live="polite"></span>
     </div>
+    <p id="status" class="status">Waiting to start…</p>
     <p id="remaining" class="remaining">Candles left: <strong>21</strong></p>
   </header>
 
   <main>
     <section id="cakeArea" aria-label="Birthday cake with 21 candles">
-      <div id="cake" class="cake">
-        <!-- Candles get added by script.js -->
-      </div>
+      <div id="cake" class="cake"></div>
       <div class="plate" aria-hidden="true"></div>
     </section>
   </main>
@@ -32,15 +33,11 @@
       <p>Wishing you an amazing year ahead.</p>
       <button id="resetBtn" class="btn ghost">Reset &amp; Blow Again</button>
     </div>
-    <canvas id="confetti" width="800" height="600" aria-hidden="true"></canvas>
+    <canvas id="confetti" aria-hidden="true"></canvas>
   </div>
 
-  <noscript>
-    <p class="noscript">This page needs JavaScript to detect your microphone and blow out candles.</p>
-  </noscript>
-
   <footer class="foot">
-    <small>Made with HTML, CSS &amp; JS — works on GitHub Pages.</small>
+    <small>Tip: If it doesn’t react, move closer to the mic (bottom edge on iPhone). You can also tap candles.</small>
   </footer>
 
   <script src="script.js" defer></script>
