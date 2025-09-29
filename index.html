@@ -1,38 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Blow Out 21 Candles 🎂</title>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="top">
     <h1>Blow Out 21 Candles 🎂</h1>
-    <p class="hint">Tap the mic, then gently blow toward your phone’s mic. Works best close to your mouth.</p>
+    <p class="hint">Tap “Enable Microphone”, then blow towards your mic. Keep blowing to put them all out!</p>
     <div class="controls">
       <button id="micBtn" class="btn">🎤 Enable Microphone</button>
-
-      <div class="levelWrap" aria-label="Microphone level">
-        <span class="levelLabel">Mic</span>
-        <span id="level" class="level" aria-live="polite"></span>
-      </div>
-
-      <div class="sensWrap">
-        <label class="sensLabel" for="sens">Sensitivity</label>
-        <select id="sens">
-          <option value="easy" selected>Easy</option>
-          <option value="normal">Normal</option>
-        </select>
-      </div>
+      <span id="level" class="level" aria-live="polite" title="Live mic level meter"></span>
     </div>
-    <p id="status" class="status">Status: <strong>Not listening</strong></p>
     <p id="remaining" class="remaining">Candles left: <strong>21</strong></p>
   </header>
 
   <main>
     <section id="cakeArea" aria-label="Birthday cake with 21 candles">
-      <div id="cake" class="cake"></div>
+      <div id="cake" class="cake">
+        <!-- Candles get added by script.js -->
+      </div>
       <div class="plate" aria-hidden="true"></div>
     </section>
   </main>
@@ -40,10 +29,10 @@
   <div id="overlay" class="overlay" hidden>
     <div class="message-card">
       <h2>🎉 Happy Birthday Ray! 🎉</h2>
-      <p>Make a wish! 🥳</p>
+      <p>Wishing you an amazing year ahead.</p>
       <button id="resetBtn" class="btn ghost">Reset &amp; Blow Again</button>
     </div>
-    <canvas id="confetti" aria-hidden="true"></canvas>
+    <canvas id="confetti" width="800" height="600" aria-hidden="true"></canvas>
   </div>
 
   <noscript>
@@ -51,7 +40,7 @@
   </noscript>
 
   <footer class="foot">
-    <small>Tip: On iPhone, hold the phone close and blow near the bottom mic.</small>
+    <small>Made with HTML, CSS &amp; JS — works on GitHub Pages.</small>
   </footer>
 
   <script src="script.js" defer></script>
