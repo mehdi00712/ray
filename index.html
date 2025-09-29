@@ -1,22 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Blow Out 21 Candles 🎂</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
   <header class="top">
     <h1>Blow Out 21 Candles 🎂</h1>
-    <p class="hint">
-      Tap “Enable Microphone”, then gently blow toward your phone’s mic. It’s calibrated to be easy. 👍
-    </p>
+    <p class="hint">Tap the mic, then gently blow toward your phone’s mic. Works best close to your mouth.</p>
     <div class="controls">
       <button id="micBtn" class="btn">🎤 Enable Microphone</button>
-      <span id="level" class="level" aria-live="polite"></span>
+
+      <div class="levelWrap" aria-label="Microphone level">
+        <span class="levelLabel">Mic</span>
+        <span id="level" class="level" aria-live="polite"></span>
+      </div>
+
+      <div class="sensWrap">
+        <label class="sensLabel" for="sens">Sensitivity</label>
+        <select id="sens">
+          <option value="easy" selected>Easy</option>
+          <option value="normal">Normal</option>
+        </select>
+      </div>
     </div>
-    <p id="status" class="status">Waiting to start…</p>
+    <p id="status" class="status">Status: <strong>Not listening</strong></p>
     <p id="remaining" class="remaining">Candles left: <strong>21</strong></p>
   </header>
 
@@ -30,14 +40,18 @@
   <div id="overlay" class="overlay" hidden>
     <div class="message-card">
       <h2>🎉 Happy Birthday Ray! 🎉</h2>
-      <p>Wishing you an amazing year ahead.</p>
+      <p>Make a wish! 🥳</p>
       <button id="resetBtn" class="btn ghost">Reset &amp; Blow Again</button>
     </div>
     <canvas id="confetti" aria-hidden="true"></canvas>
   </div>
 
+  <noscript>
+    <p class="noscript">This page needs JavaScript to detect your microphone and blow out candles.</p>
+  </noscript>
+
   <footer class="foot">
-    <small>Tip: If it doesn’t react, move closer to the mic (bottom edge on iPhone). You can also tap candles.</small>
+    <small>Tip: On iPhone, hold the phone close and blow near the bottom mic.</small>
   </footer>
 
   <script src="script.js" defer></script>
