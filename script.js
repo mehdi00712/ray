@@ -1,34 +1,30 @@
-/* ========= CONFIG tuned for phones ========= */
+/* ====== CONFIG ====== */
 const TOTAL_CANDLES = 21;
+const BLOW_THRESHOLD = 0.12;     // mic loudness threshold (0..1)
+const BLOW_RATE_MS   = 400;      // extinguish pace while above threshold
+const STARTUP_HINT_MS = 300;     // initial grace before measuring
 
-/* These get refined after auto-calibration */
-let THRESH_EASY   = 0.06;  // default fallback (pretty easy)
-let THRESH_NORMAL = 0.10;  // default fallback (still easier than before)
-
-const BLOW_RATE_MS = 240;  // extinguish cadence while above threshold
-
-/* ========= Elements ========= */
+/* ====== ELEMENTS ====== */
 const cake = document.getElementById('cake');
 const micBtn = document.getElementById('micBtn');
 const remainingEl = document.getElementById('remaining').querySelector('strong');
-const statusEl = document.getElementById('status').querySelector('strong');
 const levelBar = document.getElementById('level');
 const overlay = document.getElementById('overlay');
 const resetBtn = document.getElementById('resetBtn');
 const confettiCanvas = document.getElementById('confetti');
-const sensSel = document.getElementById('sens');
-let ctxConfetti;
+const ctxConfetti = confettiCanvas.getContext('2d');
 
-/* ========= Build Candles ========= */
+/* ====== BUILD CANDLES ====== */
 function buildCandles(){
   cake.innerHTML = '';
+  // tray to place candles neatly
   const row = document.createElement('div');
   row.className = 'candles';
   for(let i=0;i<TOTAL_CANDLES;i++){
     const c = document.createElement('button');
     c.className = 'candle';
-    c.type = 'button';
     c.setAttribute('aria-pressed','false');
+    c.setAttribute('title','Candle ' + (i+1));
     c.dataset.index = String(i);
 
     const stick = document.createElement('div'); stick.className='stick';
@@ -36,60 +32,51 @@ function buildCandles(){
     const flame = document.createElement('div'); flame.className='flame';
 
     c.appendChild(stick); c.appendChild(wick); c.appendChild(flame);
-    // Click/tap fallback to blow one
-    c.addEventListener('click', extinguishOne, {passive:true});
+    // allow click fallback to blow single candle
+    c.addEventListener('click', ()=> extinguishOne());
     row.appendChild(c);
   }
   cake.appendChild(row);
-  candlesOut = 0;
   remainingEl.textContent = TOTAL_CANDLES;
 }
 buildCandles();
 
-/* ========= State ========= */
+/* ====== STATE ====== */
 let candlesOut = 0;
-let audio, analyser, dataArray;
+let blowing = false;
+let audio;
+let analyser;
+let dataArray;
 let lastExtinguish = 0;
-let calibrated = false;
-let baseline = 0;
 
-/* ========= Helpers ========= */
 function candlesLeft(){ return TOTAL_CANDLES - candlesOut; }
+
 function updateRemaining(){
-  remainingEl.textContent = candlesLeft();
-  if(candlesLeft() === 0){ celebrate(); }
+  remainingEl.textContent = String(candlesLeft());
+  if(candlesLeft() === 0){
+    celebrate();
+  }
 }
+
 function extinguishOne(){
-  const next = document.querySelector('.candle:not(.out)');
-  if(!next) return;
-  next.classList.add('out');
-  next.setAttribute('aria-pressed','true');
+  const list = [...document.querySelectorAll('.candle:not(.out)')];
+  if(list.length === 0) return;
+  const c = list[0];  // extinguish from left to right
+  c.classList.add('out');
+  c.setAttribute('aria-pressed','true');
   candlesOut++;
   updateRemaining();
 }
 
-/* ========= Microphone ========= */
+/* ====== AUDIO / MIC ====== */
 async function enableMic(){
   try{
-    // iOS Safari needs a user gesture + resume()
     micBtn.disabled = true;
-    micBtn.textContent = '🎤 Asking permission…';
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        // Mobile-friendly hints (ignored if not supported)
-        sampleRate: 44100,
-        channelCount: 1
-      },
-      video: false
-    });
+    micBtn.textContent = '🎤 Listening…';
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true }, video:false });
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     audio = new AudioCtx();
-    if(audio.state === 'suspended'){ await audio.resume(); }
-
     const source = audio.createMediaStreamSource(stream);
     analyser = audio.createAnalyser();
     analyser.fftSize = 2048;
@@ -97,143 +84,139 @@ async function enableMic(){
     dataArray = new Uint8Array(bufferLength);
     source.connect(analyser);
 
-    statusEl.textContent = 'Calibrating…';
-    micBtn.textContent = '🎤 Listening';
-    // First, gather ~600ms of ambient noise to pick an easy threshold
-    await calibrate(600);
-    statusEl.textContent = 'Listening';
-    loop();
+    setTimeout(loop, STARTUP_HINT_MS);
   }catch(err){
     console.error(err);
     micBtn.disabled = false;
     micBtn.textContent = '🎤 Enable Microphone';
-    statusEl.textContent = 'Permission needed';
-    alert('Please allow microphone access. You can still tap candles to blow them out.');
+    alert('Microphone permission is required to blow out the candles.\nYou can still click candles to turn them off one by one.');
   }
-}
-
-function rmsFromData(){
-  analyser.getByteTimeDomainData(dataArray);
-  let sum=0;
-  for(let i=0;i<dataArray.length;i++){
-    const v = (dataArray[i] - 128) / 128;
-    sum += v*v;
-  }
-  return Math.sqrt(sum / dataArray.length); // ~0..1
-}
-
-async function calibrate(ms=600){
-  const start = performance.now();
-  let accum = 0, count = 0;
-  while(performance.now() - start < ms){
-    const r = rmsFromData();
-    accum += r; count++;
-    await new Promise(r => requestAnimationFrame(r));
-  }
-  baseline = (count ? accum / count : 0.015); // typical quiet room
-  // Set thresholds a bit above baseline, capped to easy values
-  THRESH_EASY   = Math.min(0.08, baseline * 3.2 + 0.03);
-  THRESH_NORMAL = Math.min(0.12, baseline * 4.0 + 0.05);
-  calibrated = true;
-}
-
-function activeThreshold(){
-  return (sensSel.value === 'easy') ? THRESH_EASY : THRESH_NORMAL;
 }
 
 function loop(){
   if(!analyser) return;
-  const r = rmsFromData();
+  analyser.getByteTimeDomainData(dataArray);
 
-  // Update meter
-  updateMeter(r);
-
-  // Blow logic — easier on phones (adaptive threshold)
-  const threshold = activeThreshold();
-  const now = performance.now();
-  if(r > threshold && now - lastExtinguish > BLOW_RATE_MS){
-    extinguishOne();
-    lastExtinguish = now;
+  // compute normalized loudness (RMS-like)
+  let sum = 0;
+  for(let i=0;i<dataArray.length;i++){
+    const v = (dataArray[i] - 128) / 128; // -1..1
+    sum += v*v;
   }
+  const rms = Math.sqrt(sum / dataArray.length); // 0..~1
+  const now = performance.now();
 
+  // Update level bar
+  const pct = Math.min(100, Math.floor(rms * 200)); // more responsive
+  levelBar.style.setProperty('--w', pct + '%');
+  levelBar.style.setProperty('width', '140px');
+  levelBar.style.setProperty('height', '10px');
+  levelBar.style.setProperty('borderRadius', '999px');
+  levelBar.style.setProperty('background', '#ffffff14');
+  levelBar.style.setProperty('position', 'relative');
+  levelBar.style.setProperty('overflow', 'hidden');
+  levelBar.style.setProperty('--pct', pct);
+  levelBar.style.setProperty('--pctText', `"${pct}%"`);
+  levelBar.style.setProperty('--label', `"Mic Level"`);
+
+  levelBar.style.setProperty('--afterWidth', pct + '%');
+  levelBar.style.setProperty('--afterText', pct + '%');
+  levelBar.style.setProperty('--afterBg', 'linear-gradient(90deg, #6ee7ff, #ffd166)');
+  levelBar.style.setProperty('--afterShadow', 'none');
+  levelBar.style.setProperty('--afterTrans', 'width .08s linear');
+  levelBar.style.setProperty('--afterBorder', 'none');
+  levelBar.style.setProperty('--afterRadius', '999px');
+  levelBar.style.setProperty('--afterPos', '0');
+
+  levelBar.style.setProperty('--glow', pct);
+
+  levelBar.style.setProperty('--ring', Math.min(1,pct/100));
+
+  levelBar.style.setProperty('--progress', pct);
+
+  // Extinguish cadence while above threshold
+  if(rms > BLOW_THRESHOLD){
+    blowing = true;
+    if(now - lastExtinguish > BLOW_RATE_MS){
+      extinguishOne();
+      lastExtinguish = now;
+    }
+  }else{
+    blowing = false;
+  }
   requestAnimationFrame(loop);
 }
 
-/* ========= UI Meter ========= */
-function ensureFill(){
+// fix CSS meter fill using ::after width (set here to avoid extra CSS complexity)
+const lvlObserver = new MutationObserver(() => {
+  const pct = getComputedStyle(levelBar).getPropertyValue('--afterWidth') || '0%';
+  levelBar.style.setProperty('position','relative');
   if(!levelBar.querySelector('.fill')){
     const fill = document.createElement('span');
     fill.className = 'fill';
+    Object.assign(fill.style, {
+      content: '""', position: 'absolute', left: '0', top:'0', bottom:'0',
+      width: '0%', background: 'linear-gradient(90deg,#6ee7ff,#ffd166)',
+      borderRadius: '999px', transition: 'width .08s linear'
+    });
     levelBar.appendChild(fill);
   }
-}
-function updateMeter(value){
-  ensureFill();
-  const pct = Math.max(0, Math.min(100, Math.round(value * 260))); // more responsive
-  levelBar.querySelector('.fill').style.width = pct + '%';
-}
+  levelBar.querySelector('.fill').style.width = pct;
+});
+lvlObserver.observe(levelBar, {attributes:true, attributeFilter:['style']});
 
-/* ========= Result & Confetti ========= */
+/* ====== RESULT & CONFETTI ====== */
 function celebrate(){
   overlay.hidden = false;
   startConfetti();
 }
 function resetAll(){
   overlay.hidden = true;
+  candlesOut = 0;
   buildCandles();
 }
 resetBtn?.addEventListener('click', resetAll);
 
+/* Simple confetti */
+let confettiPieces = [];
 function startConfetti(){
-  const canvas = confettiCanvas;
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  canvas.width = Math.floor(overlay.clientWidth * dpr);
-  canvas.height = Math.floor(overlay.clientHeight * dpr);
-  canvas.style.width = overlay.clientWidth + 'px';
-  canvas.style.height = overlay.clientHeight + 'px';
-  ctxConfetti = canvas.getContext('2d');
-  ctxConfetti.scale(dpr, dpr);
+  const w = confettiCanvas.width = overlay.clientWidth;
+  const h = confettiCanvas.height = overlay.clientHeight;
 
-  const w = overlay.clientWidth;
-  const h = overlay.clientHeight;
-  let pieces = Array.from({length: 160}).map(()=> ({
+  confettiPieces = Array.from({length: 200}).map(()=> ({
     x: Math.random()*w,
     y: -Math.random()*h,
     r: 2 + Math.random()*4,
     s: 1 + Math.random()*3,
     a: Math.random()*Math.PI,
-    w: 6 + Math.random()*10,
-    col: ['#ffd166','#7df9ff','#ff5d8f','#7dffb0','#c7a6ff'][Math.floor(Math.random()*5)]
+    w: 6 + Math.random()*10
   }));
 
   function tick(){
     ctxConfetti.clearRect(0,0,w,h);
-    pieces.forEach(p=>{
+    confettiPieces.forEach(p=>{
       p.y += p.s;
-      p.x += Math.sin(p.a+=0.03)*0.95;
+      p.x += Math.sin(p.a+=0.02)*0.8;
       if(p.y > h+10){ p.y = -10; p.x = Math.random()*w; }
       ctxConfetti.beginPath();
       ctxConfetti.rect(p.x, p.y, p.w, p.r);
-      ctxConfetti.fillStyle = p.col;
+      ctxConfetti.fillStyle = ['#ffd166','#7df9ff','#ff5d8f','#7dffb0','#c7a6ff'][p.w|0 % 5];
       ctxConfetti.fill();
     });
     if(!overlay.hidden) requestAnimationFrame(tick);
   }
   tick();
 }
-window.addEventListener('resize', ()=>{
-  if(!overlay.hidden){ startConfetti(); }
-});
 
-/* ========= Events ========= */
-micBtn.addEventListener('click', async ()=>{
-  // Some mobile browsers suspend AudioContext until a gesture
-  if(!analyser){ await enableMic(); }
-  else if(audio?.state === 'suspended'){ await audio.resume(); }
-});
-sensSel.addEventListener('change', ()=>{/* threshold changes automatically */});
+/* ====== EVENTS ====== */
+micBtn.addEventListener('click', enableMic);
 
-/* Keyboard fallback for accessibility */
+/* Accessibility: space/enter on cake to “click” a candle if no mic */
 cake.addEventListener('keydown', (e)=>{
   if(e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); extinguishOne(); }
+});
+
+/* Resize confetti canvas with overlay */
+window.addEventListener('resize', ()=>{
+  if(!overlay.hidden){ startConfetti(); }
 });
